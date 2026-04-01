@@ -1,0 +1,56 @@
+name: Oracle ARM Instance Creator
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  create-instance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install oci requests
+
+      - name: Create OCI config files
+        run: |
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_CLI_KEY_CONTENT }}" > ~/.oci/oci_api_private_key.pem
+          chmod 600 ~/.oci/oci_api_private_key.pem
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=${{ secrets.OCI_CLI_USER }}
+          fingerprint=${{ secrets.OCI_CLI_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_CLI_TENANCY }}
+          region=${{ secrets.OCI_CLI_REGION }}
+          key_file=~/.oci/oci_api_private_key.pem
+          EOF
+
+      - name: Create oci.env
+        run: |
+          cat > oci.env <<EOF
+          OCI_CONFIG=~/.oci/config
+          OCT_FREE_AD=${{ secrets.AD_NAME }}
+          OCI_SUBNET_ID=${{ secrets.OCI_SUBNET_ID }}
+          OCI_IMAGE_ID=${{ secrets.IMAGE_ID }}
+          DISPLAY_NAME=oraclevm
+          BOOT_VOLUME_SIZE=200
+          ASSIGN_PUBLIC_IP=True
+          REQUEST_WAIT_TIME_SECS=10
+          SSH_AUTHORIZED_KEYS=${{ secrets.SSH_PUBLIC_KEY }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          EOF
+
+      - name: Run instance creation script
+        run: |
+          export $(cat oci.env | xargs)
+          python main.py || true
+        timeout-minutes: 8
