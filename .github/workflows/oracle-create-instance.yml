@@ -18,7 +18,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install oci requests paramiko
+        run: pip install oci requests paramiko python-dotenv
 
       - name: Create OCI config files
         run: |
